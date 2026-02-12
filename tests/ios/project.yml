@@ -1,0 +1,21 @@
+name: CDVTTSTests
+targets:
+  CDVTTSTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: CDVTTSTests
+      - path: Mocks
+      - path: ../../src/ios/CDVTTS.m
+        buildPhase: sources
+      - path: ../../src/ios/CDVTTS.h
+        buildPhase: headers
+    settings:
+      HEADER_SEARCH_PATHS:
+        - $(SRCROOT)/Mocks
+        - $(SRCROOT)/../../src/ios
+      INFOPLIST_FILE: ""
+      GENERATE_INFOPLIST_FILE: YES
+      CLANG_ENABLE_MODULES: YES
+      CLANG_ENABLE_OBJC_ARC: YES

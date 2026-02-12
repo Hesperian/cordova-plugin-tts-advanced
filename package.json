@@ -26,5 +26,11 @@
     "bugs": {
         "url": "https://github.com/spasma/cordova-plugin-tts-advanced/issues"
     },
-    "homepage": "https://github.com/spasma/cordova-plugin-tts-advanced#readme"
+    "homepage": "https://github.com/spasma/cordova-plugin-tts-advanced#readme",
+    "scripts": {
+        "test": "vitest run"
+    },
+    "devDependencies": {
+        "vitest": "^3.0.0"
+    }
 }
