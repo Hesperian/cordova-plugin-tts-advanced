@@ -25,5 +25,14 @@ function onDeviceReady() {
     // Cordova is now initialized. Have fun!
 
     console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
-    document.getElementById('deviceready').classList.add('ready');
+
+    // Auto-run tests after 1 second (gives time for plugins to initialize)
+    console.log('[AUTORUN] Starting tests in 1 second...');
+    setTimeout(() => {
+        if (typeof runTests === 'function') {
+            runTests();
+        } else {
+            console.error('[AUTORUN] runTests function not found!');
+        }
+    }, 1000);
 }

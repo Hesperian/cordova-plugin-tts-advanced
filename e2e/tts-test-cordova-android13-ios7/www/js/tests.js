@@ -11,15 +11,22 @@ function log(message, type = 'info') {
 }
 
 async function test(name, fn) {
+    const startTime = Date.now();
     log(`Running: ${name}`, 'running');
+    console.log(`TEST_RUNNING::${name}`);
+    
     try {
         await fn();
+        const duration = Date.now() - startTime;
         log(`✓ PASS: ${name}`, 'pass');
-        testResults.push({name, passed: true});
+        console.log(`TEST_RESULT::${name}::PASS::${duration}ms`);
+        testResults.push({name, passed: true, duration});
         return true;
     } catch (err) {
+        const duration = Date.now() - startTime;
         log(`✗ FAIL: ${name} - ${err.message}`, 'fail');
-        testResults.push({name, passed: false, error: err.message});
+        console.log(`TEST_RESULT::${name}::FAIL::${duration}ms::${err.message}`);
+        testResults.push({name, passed: false, error: err.message, duration});
         return false;
     }
 }
@@ -28,6 +35,10 @@ async function runTests() {
     results.innerHTML = '';
     testResults = [];
     status.textContent = 'Running tests...';
+    
+    console.log('TEST_START');
+    console.log(`TEST_PLATFORM::${cordova.platformId}`);
+    const testSuiteStart = Date.now();
 
     // Test 1: TTS is available
     await test('TTS plugin is available', async () => {
@@ -105,6 +116,7 @@ async function runTests() {
     });
 
     // Summary
+    const testSuiteDuration = Date.now() - testSuiteStart;
     const passed = testResults.filter(r => r.passed).length;
     const total = testResults.length;
     const allPassed = passed === total;
@@ -113,11 +125,11 @@ async function runTests() {
     log(`\n=== SUMMARY: ${passed}/${total} tests passed ===`, 
         allPassed ? 'pass' : 'fail');
     
-    if (allPassed) {
-        log('🎉 All tests passed!', 'pass');
-    } else {
-        log(`❌ ${total - passed} test(s) failed`, 'fail');
-    }
+    // Parseable console output for automation
+    console.log(`TEST_SUMMARY::${passed}/${total} passed::${allPassed ? 'SUCCESS' : 'FAILURE'}::${testSuiteDuration}ms`);
+    console.log('TEST_COMPLETE');
+    
+    return allPassed;
 }
 
 async function testSpeak() {

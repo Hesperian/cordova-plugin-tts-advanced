@@ -1,4 +1,4 @@
-.PHONY: test test-js test-ios test-android e2e-setup e2e-prepare e2e-android e2e-android-run e2e-ios-run emulator-android simulator-ios clean
+.PHONY: test test-js test-ios test-android e2e-setup e2e-prepare e2e-android e2e-android-run e2e-ios-run e2e-android-test e2e-ios-test emulator-android simulator-ios clean
 
 IOS_SIM_ID := $(shell xcrun simctl list devices available -j | python3 -c "import sys,json; devs=[d for r in json.loads(sys.stdin.read())['devices'].values() for d in r if 'iPhone' in d['name'] and d['isAvailable']]; print(devs[0]['udid'])" 2>/dev/null)
 IOS_SIM_NAME := "iPhone 16 Pro / 18.5"
@@ -60,6 +60,15 @@ e2e-ios-run: simulator-ios
 	@xcrun simctl install booted $(E2E_APP)/platforms/ios/build/Debug-iphonesimulator/TTSTest.app
 	@xcrun simctl launch booted org.hesperian.tts.test
 	@echo "✅ App launched on iPhone 16 Pro / 18.5"
+
+# Automated E2E tests (with result capture)
+e2e-android-test: emulator-android
+	@echo "Running automated Android E2E tests..."
+	@bash e2e/scripts/android-test-runner.sh
+
+e2e-ios-test: simulator-ios
+	@echo "Running automated iOS E2E tests..."
+	@bash e2e/scripts/ios-test-runner.sh
 
 # Launch Android emulator
 emulator-android:
