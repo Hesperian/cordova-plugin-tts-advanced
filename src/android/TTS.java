@@ -116,11 +116,10 @@ public class TTS extends CordovaPlugin implements OnInitListener {
             ttsParams.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "");
             tts.setLanguage(new Locale("en", "US"));
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                tts.speak("",TextToSpeech.QUEUE_FLUSH,null,null);
+                tts.speak("",TextToSpeech.QUEUE_FLUSH,null,"");
             } else {
-                tts.speak("", TextToSpeech.QUEUE_FLUSH, null);
+                tts.speak("", TextToSpeech.QUEUE_FLUSH, ttsParams);
             }
-//            tts.speak("", TextToSpeech.QUEUE_FLUSH, ttsParams);
             System.out.println("TTS: SUCCESS");
             ttsInitialized = true;
         }
