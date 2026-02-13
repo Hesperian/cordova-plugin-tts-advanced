@@ -250,14 +250,25 @@
     CDVInvokedUrlCommand *cmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-cancel" arguments:@[options]];
     [self.plugin speak:cmd];
 
-    [self simulateDidCancel];
+    // Call stop: which should resolve the callback, then didCancel delegate fires
+    CDVInvokedUrlCommand *stopCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
+    [self.plugin stop:stopCmd];
 
-    XCTAssertEqual(self.mockDelegate.sentResults.count, 1);
-    CDVPluginResult *result = self.mockDelegate.sentResults[0][@"result"];
-    NSString *cbId = self.mockDelegate.sentResults[0][@"callbackId"];
-    XCTAssertEqual(result.status, CDVCommandStatus_ERROR);
-    XCTAssertEqualObjects(result.message, @"cancelled");
-    XCTAssertEqualObjects(cbId, @"cb-cancel");
+    // Should have 2 results: one for the speak callback, one for stop callback
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 2);
+    
+    // First result should be the speak callback with error
+    CDVPluginResult *speakResult = self.mockDelegate.sentResults[0][@"result"];
+    NSString *speakCbId = self.mockDelegate.sentResults[0][@"callbackId"];
+    XCTAssertEqual(speakResult.status, CDVCommandStatus_ERROR);
+    XCTAssertEqualObjects(speakResult.message, @"cancelled");
+    XCTAssertEqualObjects(speakCbId, @"cb-cancel");
+    
+    // Second result should be the stop callback with OK
+    CDVPluginResult *stopResult = self.mockDelegate.sentResults[1][@"result"];
+    NSString *stopCbId = self.mockDelegate.sentResults[1][@"callbackId"];
+    XCTAssertEqual(stopResult.status, CDVCommandStatus_OK);
+    XCTAssertEqualObjects(stopCbId, @"cb-stop");
 }
 
 - (void)testDidCancelClearsBothCallbackIds {
@@ -269,14 +280,17 @@
     CDVInvokedUrlCommand *cmd2 = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-2" arguments:@[options2]];
     [self.plugin speak:cmd2];
 
-    [self simulateDidCancel];
+    // Call stop: which should resolve both callbacks
+    CDVInvokedUrlCommand *stopCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
+    [self.plugin stop:stopCmd];
 
-    // Both callbacks should be resolved with error
-    XCTAssertEqual(self.mockDelegate.sentResults.count, 2);
+    // Should have 3 results: cb-1 (cancelled), cb-2 (cancelled), cb-stop (OK)
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 3);
     XCTAssertEqualObjects(self.mockDelegate.sentResults[0][@"callbackId"], @"cb-1");
     XCTAssertEqualObjects(self.mockDelegate.sentResults[1][@"callbackId"], @"cb-2");
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[2][@"callbackId"], @"cb-stop");
 
-    // Both should be cleared
+    // Both speak callbacks should be cleared
     XCTAssertNil([self.plugin valueForKey:@"callbackId"]);
     XCTAssertNil([self.plugin valueForKey:@"lastCallbackId"]);
 }
