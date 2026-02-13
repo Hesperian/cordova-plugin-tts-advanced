@@ -51,6 +51,10 @@
     [(id<AVSpeechSynthesizerDelegate>)self.plugin speechSynthesizer:nil didFinishSpeechUtterance:nil];
 }
 
+- (void)simulateDidCancel {
+    [(id<AVSpeechSynthesizerDelegate>)self.plugin speechSynthesizer:nil didCancelSpeechUtterance:nil];
+}
+
 #pragma mark - checkLanguage
 
 - (void)testCheckLanguageReturnsOK {
@@ -239,19 +243,66 @@
     XCTAssertNil(lastCbId);
 }
 
-#pragma mark - stop current behavior (documenting bugs as-is)
+#pragma mark - didCancelSpeechUtterance delegate
 
-- (void)testStopSendsNoResult {
+- (void)testDidCancelResolvesCallbackWithError {
+    NSDictionary *options = @{@"text": @"hello"};
+    CDVInvokedUrlCommand *cmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-cancel" arguments:@[options]];
+    [self.plugin speak:cmd];
+
+    [self simulateDidCancel];
+
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 1);
+    CDVPluginResult *result = self.mockDelegate.sentResults[0][@"result"];
+    NSString *cbId = self.mockDelegate.sentResults[0][@"callbackId"];
+    XCTAssertEqual(result.status, CDVCommandStatus_ERROR);
+    XCTAssertEqualObjects(result.message, @"cancelled");
+    XCTAssertEqualObjects(cbId, @"cb-cancel");
+}
+
+- (void)testDidCancelClearsBothCallbackIds {
+    NSDictionary *options1 = @{@"text": @"first"};
+    CDVInvokedUrlCommand *cmd1 = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-1" arguments:@[options1]];
+    [self.plugin speak:cmd1];
+
+    NSDictionary *options2 = @{@"text": @"second"};
+    CDVInvokedUrlCommand *cmd2 = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-2" arguments:@[options2]];
+    [self.plugin speak:cmd2];
+
+    [self simulateDidCancel];
+
+    // Both callbacks should be resolved with error
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 2);
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[0][@"callbackId"], @"cb-1");
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[1][@"callbackId"], @"cb-2");
+
+    // Both should be cleared
+    XCTAssertNil([self.plugin valueForKey:@"callbackId"]);
+    XCTAssertNil([self.plugin valueForKey:@"lastCallbackId"]);
+}
+
+- (void)testDidCancelWithNoCallbacksIsNoop {
+    // No speaks → no callbacks to resolve
+    [self simulateDidCancel];
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 0);
+}
+
+#pragma mark - stop (fixed behavior)
+
+- (void)testStopSendsOKResult {
     CDVInvokedUrlCommand *cmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
     [self.plugin stop:cmd];
 
-    // Bug: stop sends no plugin result for its own callback
-    XCTAssertEqual(self.mockDelegate.sentResults.count, 0,
-                   @"stop currently sends no result (known bug)");
+    // stop sends OK for its own callback
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 1);
+    CDVPluginResult *result = self.mockDelegate.sentResults[0][@"result"];
+    NSString *cbId = self.mockDelegate.sentResults[0][@"callbackId"];
+    XCTAssertEqual(result.status, CDVCommandStatus_OK);
+    XCTAssertEqualObjects(cbId, @"cb-stop");
 }
 
-- (void)testStopDoesNotClearCallbackState {
-    // speak sets callbackId, then stop should NOT clear it (known bug)
+- (void)testStopClearsCallbackState {
+    // speak sets callbackId, then stop clears it
     NSDictionary *options = @{@"text": @"hello"};
     CDVInvokedUrlCommand *speakCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-speak" arguments:@[options]];
     [self.plugin speak:speakCmd];
@@ -259,10 +310,63 @@
     CDVInvokedUrlCommand *stopCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
     [self.plugin stop:stopCmd];
 
-    // Bug: callbackId is still set after stop (not cleaned up)
-    NSString *storedCallbackId = [self.plugin valueForKey:@"callbackId"];
-    XCTAssertEqualObjects(storedCallbackId, @"cb-speak",
-                          @"stop does not clear callbackId (known bug)");
+    // callbackId cleared after stop
+    XCTAssertNil([self.plugin valueForKey:@"callbackId"]);
+    XCTAssertNil([self.plugin valueForKey:@"lastCallbackId"]);
+}
+
+- (void)testStopResolvesPendingSpeakCallbackWithError {
+    NSDictionary *options = @{@"text": @"hello"};
+    CDVInvokedUrlCommand *speakCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-speak" arguments:@[options]];
+    [self.plugin speak:speakCmd];
+
+    CDVInvokedUrlCommand *stopCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
+    [self.plugin stop:stopCmd];
+
+    // Should have 2 results: cancelled speak + OK stop
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 2);
+
+    // First: speak callback cancelled
+    CDVPluginResult *speakResult = self.mockDelegate.sentResults[0][@"result"];
+    XCTAssertEqual(speakResult.status, CDVCommandStatus_ERROR);
+    XCTAssertEqualObjects(speakResult.message, @"cancelled");
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[0][@"callbackId"], @"cb-speak");
+
+    // Second: stop's own OK result
+    CDVPluginResult *stopResult = self.mockDelegate.sentResults[1][@"result"];
+    XCTAssertEqual(stopResult.status, CDVCommandStatus_OK);
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[1][@"callbackId"], @"cb-stop");
+}
+
+- (void)testStopThenSpeakDoesNotOrphanCallback {
+    // This is the core bug scenario: stop→speak should not leave orphaned callbacks
+    NSDictionary *optionsA = @{@"text": @"block A"};
+    CDVInvokedUrlCommand *speakA = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-A" arguments:@[optionsA]];
+    [self.plugin speak:speakA];
+
+    // Stop cancels A
+    CDVInvokedUrlCommand *stopCmd = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-stop" arguments:@[]];
+    [self.plugin stop:stopCmd];
+
+    // Clear sent results to focus on the new speak
+    [self.mockDelegate.sentResults removeAllObjects];
+
+    // Speak X (the new block)
+    NSDictionary *optionsX = @{@"text": @"block X"};
+    CDVInvokedUrlCommand *speakX = [CDVInvokedUrlCommand commandWithCallbackId:@"cb-X" arguments:@[optionsX]];
+    [self.plugin speak:speakX];
+
+    // No stale callback should be queued
+    XCTAssertNil([self.plugin valueForKey:@"lastCallbackId"],
+                 @"No stale lastCallbackId after stop cleared state");
+    XCTAssertEqualObjects([self.plugin valueForKey:@"callbackId"], @"cb-X");
+
+    // When X finishes, it should resolve cb-X (not a stale callback)
+    [self simulateDidFinish];
+    XCTAssertEqual(self.mockDelegate.sentResults.count, 1);
+    XCTAssertEqualObjects(self.mockDelegate.sentResults[0][@"callbackId"], @"cb-X");
+    CDVPluginResult *result = self.mockDelegate.sentResults[0][@"result"];
+    XCTAssertEqual(result.status, CDVCommandStatus_OK);
 }
 
 #pragma mark - Queuing

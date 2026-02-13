@@ -96,9 +96,41 @@
     [synthesizer speakUtterance:utterance];
 }
 
+- (void)speechSynthesizer:(AVSpeechSynthesizer*)synth didCancelSpeechUtterance:(AVSpeechUtterance*)utterance {
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"cancelled"];
+    if (lastCallbackId) {
+        [self.commandDelegate sendPluginResult:result callbackId:lastCallbackId];
+        lastCallbackId = nil;
+    }
+    if (callbackId) {
+        [self.commandDelegate sendPluginResult:result callbackId:callbackId];
+        callbackId = nil;
+    }
+
+    [[AVAudioSession sharedInstance] setActive:NO withOptions:0 error:nil];
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient
+      withOptions: 0 error: nil];
+    [[AVAudioSession sharedInstance] setActive:YES withOptions: 0 error:nil];
+}
+
 - (void)stop:(CDVInvokedUrlCommand*)command {
     [synthesizer pauseSpeakingAtBoundary:AVSpeechBoundaryImmediate];
     [synthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+
+    // Resolve any pending speak callbacks so the JS side isn't stuck
+    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"cancelled"];
+    if (lastCallbackId) {
+        [self.commandDelegate sendPluginResult:result callbackId:lastCallbackId];
+        lastCallbackId = nil;
+    }
+    if (callbackId) {
+        [self.commandDelegate sendPluginResult:result callbackId:callbackId];
+        callbackId = nil;
+    }
+
+    // Send a result for the stop command's own callback
+    CDVPluginResult* stopResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:stopResult callbackId:command.callbackId];
 }
 
 - (void)checkLanguage:(CDVInvokedUrlCommand *)command {
