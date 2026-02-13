@@ -190,9 +190,9 @@ public class TTSTest {
         plugin.execute("speak", args, callbackContext);
 
         // Verify QUEUE_FLUSH is used when cancel=true
-        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so 3-arg speak is called
+        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so 3-arg speak is called with ttsParams
         verify(mockTts).speak(eq("hello"), eq(TextToSpeech.QUEUE_FLUSH),
-                isNull());
+                any(java.util.HashMap.class));
     }
 
     @Test
@@ -212,25 +212,48 @@ public class TTSTest {
         plugin.execute("speak", args, callbackContext);
 
         // Verify QUEUE_ADD is used when cancel=false
-        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so 3-arg speak is called
+        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so 3-arg speak is called with ttsParams
         verify(mockTts).speak(eq("hello"), eq(TextToSpeech.QUEUE_ADD),
-                isNull());
+                any(java.util.HashMap.class));
     }
 
-    // --- stop current behavior ---
+    @Test
+    public void testSpeakPassesUtteranceIdInParams() throws Exception {
+        TextToSpeech mockTts = mock(TextToSpeech.class);
+        setField("tts", mockTts);
+        setField("ttsInitialized", true);
+        when(mockTts.getVoices()).thenReturn(new java.util.HashSet<>());
+
+        JSONObject opts = new JSONObject();
+        opts.put("text", "hello");
+        opts.put("locale", "en-US");
+        JSONArray args = new JSONArray();
+        args.put(opts);
+
+        plugin.execute("speak", args, callbackContext);
+
+        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so 3-arg speak is called
+        // Verify ttsParams HashMap is passed (contains utterance ID) instead of null
+        org.mockito.ArgumentCaptor<java.util.HashMap> captor =
+                org.mockito.ArgumentCaptor.forClass(java.util.HashMap.class);
+        verify(mockTts).speak(eq("hello"), eq(TextToSpeech.QUEUE_ADD), captor.capture());
+        java.util.HashMap<String, String> params = captor.getValue();
+        assertNotNull("ttsParams should not be null", params);
+        assertEquals("utterance ID should be the callback ID", "test-cb",
+                params.get(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID));
+    }
+
+    // --- stop (fixed behavior) ---
 
     @Test
-    public void testStopDoesNotResolveCallback() throws Exception {
+    public void testStopResolvesCallback() throws Exception {
         TextToSpeech mockTts = mock(TextToSpeech.class);
         setField("tts", mockTts);
 
         plugin.execute("stop", new JSONArray(), callbackContext);
 
-        // Bug: stop doesn't call success or error on its callback
-        verify(callbackContext, never()).success();
-        verify(callbackContext, never()).success(anyString());
-        verify(callbackContext, never()).error(anyString());
-        verify(callbackContext, never()).sendPluginResult(any(PluginResult.class));
+        // stop now calls success on its callback
+        verify(callbackContext).success();
     }
 
     // --- onInit ---

@@ -69,7 +69,7 @@ public class TTS extends CordovaPlugin implements OnInitListener {
 
             @Override
             public void onDone(String callbackId) {
-                if (!callbackId.equals("")) {
+                if (callbackId != null && !callbackId.equals("")) {
                     CallbackContext context = new CallbackContext(callbackId, webView);
                     context.success();
                 }
@@ -77,7 +77,7 @@ public class TTS extends CordovaPlugin implements OnInitListener {
 
             @Override
             public void onError(String callbackId) {
-                if (!callbackId.equals("")) {
+                if (callbackId != null && !callbackId.equals("")) {
                     CallbackContext context = new CallbackContext(callbackId, webView);
                     context.error(ERR_UNKNOWN);
                 }
@@ -129,6 +129,7 @@ public class TTS extends CordovaPlugin implements OnInitListener {
     private void stop(JSONArray args, CallbackContext callbackContext)
             throws JSONException, NullPointerException {
         tts.stop();
+        callbackContext.success();
     }
 
     private void callInstallTtsActivity(JSONArray args, CallbackContext callbackContext)
@@ -264,9 +265,11 @@ public class TTS extends CordovaPlugin implements OnInitListener {
         tts.setPitch((float)pitch);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            tts.speak(text,cancel?TextToSpeech.QUEUE_FLUSH:TextToSpeech.QUEUE_ADD,null,callbackContext.getCallbackId());
+            tts.speak(text, cancel ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
+                    null, callbackContext.getCallbackId());
         } else {
-            tts.speak(text,cancel?TextToSpeech.QUEUE_FLUSH:TextToSpeech.QUEUE_ADD,ttsParams);
+            tts.speak(text, cancel ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
+                    ttsParams);
         }
     }
 
