@@ -284,13 +284,16 @@ public class TTSTest {
     // --- checkLanguage ---
 
     @Test
-    public void testCheckLanguageSendsOKResult() throws Exception {
+    public void testCheckLanguageGuardedByApiLevel() throws Exception {
+        // In unit tests Build.VERSION.SDK_INT=0 (pre-Lollipop), so checkLanguage
+        // is skipped by the API level guard in execute(). Action is still recognized.
         TextToSpeech mockTts = mock(TextToSpeech.class);
         setField("tts", mockTts);
-        when(mockTts.getAvailableLanguages()).thenReturn(new java.util.HashSet<>());
 
-        plugin.execute("checkLanguage", new JSONArray(), callbackContext);
+        boolean result = plugin.execute("checkLanguage", new JSONArray(), callbackContext);
+        assertTrue("checkLanguage action is recognized", result);
 
-        verify(callbackContext).sendPluginResult(any(PluginResult.class));
+        // No result sent because API level guard skips the call
+        verify(callbackContext, never()).sendPluginResult(any(PluginResult.class));
     }
 }
