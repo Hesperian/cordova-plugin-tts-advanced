@@ -1,4 +1,4 @@
-.PHONY: test test-js test-ios test-android e2e-setup e2e-prepare e2e-android e2e-android-run e2e-ios-run e2e-android-test e2e-ios-test emulator-android simulator-ios clean
+.PHONY: test test-all test-js test-ios test-android e2e-setup e2e-prepare e2e-android e2e-android-run e2e-ios-run e2e-android-test e2e-ios-test emulator-android simulator-ios clean
 
 IOS_SIM_ID := $(shell xcrun simctl list devices available -j | python3 -c "import sys,json; devs=[d for r in json.loads(sys.stdin.read())['devices'].values() for d in r if 'iPhone' in d['name'] and d['isAvailable']]; print(devs[0]['udid'])" 2>/dev/null)
 IOS_SIM_NAME := "iPhone 16 Pro / 18.5"
@@ -8,6 +8,18 @@ ANDROID_AVD := Pixel_6_API_UpsideDownCake
 E2E_APP := e2e/tts-test-cordova-android13-ios7
 
 test: test-js test-ios test-android
+
+test-all: test e2e-android-test
+	@echo ""
+	@echo "======================================"
+	@echo "✅ ALL TESTS PASSED!"
+	@echo "======================================"
+	@echo "Unit tests: JavaScript, iOS, Android"
+	@echo "E2E tests: Android"
+	@echo "======================================"
+	@echo ""
+	@echo "Note: iOS E2E tests (make e2e-ios-test) require manual verification"
+	@echo "      Run 'make e2e-ios-run' and check test output in app UI"
 
 test-js: node_modules
 	npx vitest run
