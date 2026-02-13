@@ -82,6 +82,18 @@ public class TTS extends CordovaPlugin implements OnInitListener {
                     context.error(ERR_UNKNOWN);
                 }
             }
+
+            // onStop was added in API 23 (Marshmallow)
+            // On older devices, this method won't be called
+            @Override
+            public void onStop(String callbackId, boolean interrupted) {
+                // Called when TTS is interrupted by stop()
+                // Resolve the callback to unblock any waiting promises
+                if (callbackId != null && !callbackId.equals("") && interrupted) {
+                    CallbackContext context = new CallbackContext(callbackId, webView);
+                    context.success();
+                }
+            }
         });
     }
 
