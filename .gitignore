@@ -3,4 +3,6 @@ node_modules/
 tests/ios/CDVTTSTests.xcodeproj/
 tests/android/build/
 tests/android/.gradle/
-tests/android/local.properties
+tests/android/local.propertiese2e/*/platforms/
+e2e/*/plugins/
+e2e/*/node_modules/
