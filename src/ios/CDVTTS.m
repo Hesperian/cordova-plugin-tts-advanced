@@ -97,16 +97,10 @@
 }
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer*)synth didCancelSpeechUtterance:(AVSpeechUtterance*)utterance {
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"cancelled"];
-    if (lastCallbackId) {
-        [self.commandDelegate sendPluginResult:result callbackId:lastCallbackId];
-        lastCallbackId = nil;
-    }
-    if (callbackId) {
-        [self.commandDelegate sendPluginResult:result callbackId:callbackId];
-        callbackId = nil;
-    }
-
+    // Callback cleanup is handled by stop: (which fires before this delegate).
+    // We must NOT touch callbackId/lastCallbackId here because a new speak:
+    // may have already set them, and this delegate cannot distinguish which
+    // utterance was cancelled.
     [[AVAudioSession sharedInstance] setActive:NO withOptions:0 error:nil];
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient
       withOptions: 0 error: nil];
@@ -127,6 +121,12 @@
         [self.commandDelegate sendPluginResult:result callbackId:callbackId];
         callbackId = nil;
     }
+
+    // Reset audio session
+    [[AVAudioSession sharedInstance] setActive:NO withOptions:0 error:nil];
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient
+      withOptions: 0 error: nil];
+    [[AVAudioSession sharedInstance] setActive:YES withOptions: 0 error:nil];
 
     // Send a result for the stop command's own callback
     CDVPluginResult* stopResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
